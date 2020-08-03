@@ -24,26 +24,52 @@ class Widget : public QLabel
 
     enum ClimbingType{
         NoClimbing,
+        ClimbingMove,
         ClimbingLeft,
         ClimblingRight,
         ClimbingTop
     };
 
+    enum StayType{
+        NoStay,
+        StayStanding,
+        StayLying,
+        StayMusic,
+        StayLove
+    };
+
+    enum CatchType{
+        NoCatch,
+        leftCatch,
+        rightCatch
+    };
+
     Q_ENUM(StateType)
     Q_ENUM(ClimbingType)
+    Q_ENUM(StayType)
+    Q_ENUM(CatchType)
 
 public:
-    Widget(QWidget *parent = 0);
-    void timerEvent(QTimerEvent *event);
+    Widget(QWidget *parent = nullptr);
+    void timerEvent(QTimerEvent *);
     int getRandNum(int randNum);
-    void setCurrentState();
+    bool setCurrentState(StateType state);
 
     ~Widget();
 
 private:
     int count = 1;
+    int childTimerDurationSum = 0;  // 子计时器总共的时间
+    int childTimeCount = 0;  // 子计时器叠加的时间
+    int timerDuration = 0;  // 主计时器经历的时间
+    QRect availableRect;  // 可用的区域
+    QPoint moveTargetPos;  // 移动的目标坐标
     StateType mStateType;
     ClimbingType mClimbingType;
+    StayType mStayType;
+    CatchType mCatchType;
+
+    QTimer *mStayTimer;
     QTimer *mRuningTimer;
     QTimer *mMoveTimer;
     QTimer *mClimbingTimer;
