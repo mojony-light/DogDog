@@ -1,7 +1,14 @@
 #include "widget.h"
 
+#define TIMERINTERVAL 50
+
 Widget::Widget(QWidget *parent)
-    : QLabel(parent)
+    : QLabel(parent),
+      mStayTimer(new QTimer(this)),
+      mRuningTimer(new QTimer(this)),
+      mMoveTimer(new QTimer(this)),
+      mClimbingTimer(new QTimer(this)),
+      mFallingTimer(new QTimer(this))
 {
     this->setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool);
 //    this->setAttribute(Qt::WA_TranslucentBackground);
@@ -11,6 +18,12 @@ Widget::Widget(QWidget *parent)
     image = image.scaled(image.size()*0.5, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     this->setPixmap(QPixmap::fromImage(image));
     startTimer(300);
+
+    connect(mStayTimer, &QTimer::timeout, this, &Widget::slotStayTimeOut);
+    connect(mRuningTimer, &QTimer::timeout, this, &Widget::slotRuningTimeOut);
+    connect(mMoveTimer, &QTimer::timeout, this, &Widget::slotMoveTimeOut);
+    connect(mClimbingTimer, &QTimer::timeout, this, &Widget::slotClimbingTimeOut);
+    connect(mFallingTimer, &QTimer::timeout, this, &Widget::slotFallingTimeOut);
 }
 
 // 主计时器
@@ -99,10 +112,9 @@ bool Widget::setCurrentState(StateType state)
             mStateType = Stay;
 
             // 设置发呆时间不超过3秒钟
-            int sduration = getRandNum(3000);
-            childTimerDurationSum = sduration;
-
-            mStayTimer->start();
+            childTimerDurationSum = getRandNum(3000);
+            mDirectionType = Direction(getRandNum(2));
+            mStayTimer->start(TIMERINTERVAL);
             break;
         }
 
@@ -111,8 +123,9 @@ bool Widget::setCurrentState(StateType state)
             mStateType = Stay;
 
             // 设置发呆时间不超过3秒钟
-            int lduration = getRandNum(3000);
-            mStayTimer->start(lduration);
+            childTimerDurationSum = getRandNum(3000);
+            mDirectionType = Direction(getRandNum(2));
+            mStayTimer->start(TIMERINTERVAL);
             break;
         }
 
@@ -121,8 +134,9 @@ bool Widget::setCurrentState(StateType state)
             mStateType = Stay;
 
             // 设置发呆时间不超过3秒钟
-            int mduration = getRandNum(3000);
-            mStayTimer->start(mduration);
+            childTimerDurationSum = getRandNum(3000);
+            mDirectionType = Direction(getRandNum(2));
+            mStayTimer->start(TIMERINTERVAL);
             break;
         }
         case StayLove: {
@@ -130,12 +144,13 @@ bool Widget::setCurrentState(StateType state)
             mStateType = Stay;
 
             // 设置发呆时间不超过3秒钟
-            int lduration = getRandNum(3000);
-            mStayTimer->start(lduration);
+            childTimerDurationSum = getRandNum(3000);
+            mDirectionType = Direction(getRandNum(2));
+            mStayTimer->start(TIMERINTERVAL);
             break;
         }
         default:
-            break;
+            return false;
     }
         break;
     }
@@ -151,9 +166,10 @@ bool Widget::setCurrentState(StateType state)
         mStayType = NoStay;
         mCatchType = NoCatch;
 
-
-
-        mRuningTimer->start();
+        // 随机奔跑时间
+        childTimerDurationSum = getRandNum(3000);
+        mDirectionType = Direction(getRandNum(2));
+        mRuningTimer->start(TIMERINTERVAL);
         break;
     }
     case Move: {
@@ -166,7 +182,10 @@ bool Widget::setCurrentState(StateType state)
         mClimbingType = NoClimbing;
         mStayType = NoStay;
         mCatchType = NoCatch;
-        mMoveTimer->start();
+
+        childTimerDurationSum = getRandNum(3000);
+        mDirectionType = Direction(getRandNum(2));
+        mMoveTimer->start(TIMERINTERVAL);
         break;
     }
 
@@ -185,29 +204,141 @@ bool Widget::setCurrentState(StateType state)
         case ClimbingLeft: {
             // 窗口左边攀爬
             mClimbingType = ClimbingLeft;
-            if (pos() != moveTargetPos) {
+            mDirectionType = Direction::Left;
+            if (pos().x() != moveTargetPos.x()) {
                 // 想要移动到窗口边缘进行攀爬
                 mClimbingType = ClimbingMove;
                 moveTargetPos = QPoint(availableRect.x(), availableRect.height()-height());
             }
 
-            mClimbingTimer->start()
+            childTimerDurationSum = -1;
+            mClimbingTimer->start(TIMERINTERVAL);
+            break;
+        }
+        case ClimbingTop: {
+            // 窗口上面攀爬
+            if (mClimbingType == ClimbingLeft) {
+                // 上一个状态是左边攀爬
+                moveTargetPos = QPoint(availableRect.x(), availableRect.y());
+                mDirectionType = Direction::Left;
+            } else if (mClimbingType == ClimblingRight) {
+                // 上一个状态是右边攀爬
+                moveTargetPos = QPoint(availableRect.width()-width(), availableRect.y());
+                mDirectionType = Direction::Right;
+            } else if (mClimbingType == ClimbingMove) {
+                // 上一个状态是正在地下移动
+                moveTargetPos = QPoint(availableRect.x(), availableRect.height()-height());
+                mDirectionType = Direction::Left;
+
+            } else {
+                // 上一个状态没有在攀爬，应该就在地下
+                mClimbingType = ClimbingMove;
+                moveTargetPos = QPoint(availableRect.x(), availableRect.height()-height());
+                mDirectionType = Direction::Left;
+            }
+
+            childTimerDurationSum = -1;
+            mClimbingTimer->start(TIMERINTERVAL);
+            break;
+        }
+        case ClimblingRight: {
+            // 窗口右边攀爬
+            mClimbingType = ClimblingRight;
+            mDirectionType = Direction::Right;
+            if (pos().x() != moveTargetPos.x()) {
+                // 想要移动到窗口边缘进行攀爬
+                mClimbingType = ClimbingMove;
+                moveTargetPos = QPoint(availableRect.width() - width(), availableRect.height()-height());
+            }
+
+            childTimerDurationSum = -1;
+            mClimbingTimer->start(TIMERINTERVAL);
+            break;
+        }
+        default:
+            return false;
         }
 
-        }
         break;
     }
-
-    case Falling:
-        // 当前正在掉落
-        mFallingTimer->start();
-        return;
     default:
-        break;
+        return false; // 其他状态不被允许
     }
+    return true;
 }
 
 Widget::~Widget()
+{
+
+}
+
+void Widget::slotStayTimeOut()
+{
+    // 切换图片
+    if (mStateType != Stay)
+        return;
+
+    QString curPath;
+    QImage curImage;
+
+    switch (mStayType) {
+    case StayStanding: {
+        // 保持站立姿势
+        curPath = "qrc:/img/shime01.png";
+        curImage = QImage(curPath);
+
+        if (mDirectionType == Direction::Right)
+            curImage.mirrored(true, false);
+
+        break;
+    }
+    case StayMusic: {
+
+
+        break;
+    }
+    case StayLying: {
+        // 躺着
+        curPath = "qrc:/img/shime20.png";
+
+        if (getRandNum(100) + 1 < 15)  // 五分之一的概率发出感叹的表情
+            curPath = "qrc:/img/shime21.png";
+
+        curImage = QImage(curPath);
+
+        if (mDirectionType == Direction::Right)
+            curImage.mirrored(true, false);
+
+        break;
+    }
+
+
+    }
+
+    if ((childTimeCount += TIMERINTERVAL) >= childTimerDurationSum) {
+        // 重置时间，并关闭计时器
+        childTimerDurationSum = 0;
+        childTimeCount = 0;
+        mStayTimer->stop();
+    }
+}
+
+void Widget::slotRuningTimeOut()
+{
+
+}
+
+void Widget::slotMoveTimeOut()
+{
+
+}
+
+void Widget::slotClimbingTimeOut()
+{
+
+}
+
+void Widget::slotFallingTimeOut()
 {
 
 }

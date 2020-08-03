@@ -13,7 +13,14 @@ class Widget : public QLabel
 {
     Q_OBJECT
 
-    enum StateType{
+    enum Direction {
+        Left,
+        Right,
+        TopLeft,
+        TopRight
+    };
+
+    enum StateType {
         Stay,
         Running,
         Move,
@@ -22,7 +29,7 @@ class Widget : public QLabel
         Catch,  // 被鼠标抓住
     };
 
-    enum ClimbingType{
+    enum ClimbingType {
         NoClimbing,
         ClimbingMove,
         ClimbingLeft,
@@ -30,7 +37,7 @@ class Widget : public QLabel
         ClimbingTop
     };
 
-    enum StayType{
+    enum StayType {
         NoStay,
         StayStanding,
         StayLying,
@@ -38,7 +45,7 @@ class Widget : public QLabel
         StayLove
     };
 
-    enum CatchType{
+    enum CatchType {
         NoCatch,
         leftCatch,
         rightCatch
@@ -57,6 +64,13 @@ public:
 
     ~Widget();
 
+public slots:
+    void slotStayTimeOut();
+    void slotRuningTimeOut();
+    void slotMoveTimeOut();
+    void slotClimbingTimeOut();
+    void slotFallingTimeOut();
+
 private:
     int count = 1;
     int childTimerDurationSum = 0;  // 子计时器总共的时间
@@ -68,6 +82,7 @@ private:
     ClimbingType mClimbingType;
     StayType mStayType;
     CatchType mCatchType;
+    Direction mDirectionType;
 
     QTimer *mStayTimer;
     QTimer *mRuningTimer;
